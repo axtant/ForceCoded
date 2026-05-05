@@ -1,8 +1,9 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Client } from "@stomp/stompjs";
 import SockJS from "sockjs-client";
+import { getSubmission } from "@/lib/api";
 
 interface TestUpdate {
   testIndex: number;
@@ -17,6 +18,11 @@ interface Props {
   submissionId: number;
   onDone?: (verdict: string) => void;
 }
+
+const FINAL_VERDICTS = new Set([
+  "ACCEPTED", "WRONG_ANSWER", "TIME_LIMIT_EXCEEDED",
+  "MEMORY_LIMIT_EXCEEDED", "RUNTIME_ERROR", "COMPILATION_ERROR",
+]);
 
 const verdictColor: Record<string, string> = {
   ACCEPTED: "text-green-400",
@@ -43,8 +49,20 @@ const verdictLabel: Record<string, string> = {
 export default function VerdictPanel({ submissionId, onDone }: Props) {
   const [tests, setTests] = useState<Record<number, string>>({});
   const [finalVerdict, setFinalVerdict] = useState<string | null>(null);
+  const doneRef = useRef(false);
+
+  function settle(verdict: string, testResults?: Record<number, string>) {
+    if (doneRef.current) return;
+    doneRef.current = true;
+    if (testResults) setTests(testResults);
+    setFinalVerdict(verdict);
+    onDone?.(verdict);
+  }
 
   useEffect(() => {
+    doneRef.current = false;
+
+    // --- WebSocket (primary) ---
     const wsUrl = process.env.NEXT_PUBLIC_WS_URL!;
     const client = new Client({
       webSocketFactory: () => new SockJS(wsUrl) as WebSocket,
@@ -56,21 +74,44 @@ export default function VerdictPanel({ submissionId, onDone }: Props) {
             const update = data as TestUpdate;
             setTests(prev => ({ ...prev, [update.testIndex]: update.status }));
           } else if ("verdict" in data) {
-            const final = data as FinalVerdict;
-            const v = final.verdict;
-            if (v !== "IN_PROGRESS" && v !== "QUEUED") {
-              setFinalVerdict(v);
-              onDone?.(v);
+            const v = (data as FinalVerdict).verdict;
+            if (FINAL_VERDICTS.has(v)) {
+              settle(v);
               client.deactivate();
             }
           }
         });
       },
     });
-
     client.activate();
-    return () => { client.deactivate(); };
-  }, [submissionId, onDone]);
+
+    // --- Polling fallback (kicks in if WebSocket misses the verdict) ---
+    const pollInterval = setInterval(async () => {
+      if (doneRef.current) { clearInterval(pollInterval); return; }
+      try {
+        const sub = await getSubmission(submissionId);
+        if (FINAL_VERDICTS.has(sub.verdict)) {
+          const testMap: Record<number, string> = {};
+          sub.results.forEach(r => {
+            testMap[r.testIndex] = r.verdict === "ACCEPTED" ? "AC"
+              : r.verdict === "WRONG_ANSWER" ? "WA"
+              : r.verdict === "TIME_LIMIT_EXCEEDED" ? "TLE"
+              : r.verdict === "RUNTIME_ERROR" ? "RE" : r.verdict;
+          });
+          settle(sub.verdict, testMap);
+          clearInterval(pollInterval);
+          client.deactivate();
+        }
+      } catch {
+        // ignore poll errors, keep trying
+      }
+    }, 3000);
+
+    return () => {
+      client.deactivate();
+      clearInterval(pollInterval);
+    };
+  }, [submissionId]);
 
   const testEntries = Object.entries(tests).sort(([a], [b]) => Number(a) - Number(b));
 
