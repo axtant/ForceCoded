@@ -1,3 +1,5 @@
+import type { NextConfig } from "next";
+
 const BACKEND_URL = process.env.BACKEND_URL || "http://34.180.54.4:8080";
 
 const nextConfig: NextConfig = {
