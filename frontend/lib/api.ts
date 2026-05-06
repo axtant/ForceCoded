@@ -1,4 +1,7 @@
-const BASE = process.env.NEXT_PUBLIC_API_URL || "";
+const BASE =
+  typeof window === "undefined"
+    ? process.env.BACKEND_URL || "http://34.180.54.4:8080"
+    : process.env.NEXT_PUBLIC_API_URL || "";
 
 function authHeaders(): HeadersInit {
   const token = typeof window !== "undefined" ? localStorage.getItem("token") : null;
