@@ -1,4 +1,4 @@
-const BASE = process.env.NEXT_PUBLIC_API_URL!;
+const BASE = "http://34.180.54.4:8080";
 
 function authHeaders(): HeadersInit {
   const token = typeof window !== "undefined" ? localStorage.getItem("token") : null;
