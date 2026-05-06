@@ -1,6 +1,8 @@
 import Link from "next/link";
 import { getContests, ContestSummary } from "@/lib/api";
 
+export const dynamic = "force-dynamic";
+
 const statusColor: Record<string, string> = {
   UPCOMING: "text-blue-400 bg-blue-900/30 border-blue-700",
   ACTIVE: "text-green-400 bg-green-900/30 border-green-700",
