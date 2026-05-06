@@ -1,0 +1,9 @@
+{
+  "problem_slug": "sum-of-two",
+  "title": "Sum of Two Numbers",
+  "difficulty": "EASY",
+  "sample_count": 2,
+  "total_tests": 3,
+  "time_limit_ms": 2000,
+  "memory_limit_mb": 256
+}
