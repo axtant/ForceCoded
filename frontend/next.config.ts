@@ -1,12 +1,17 @@
 import type { NextConfig } from "next";
-import path from "path";
 
 const nextConfig: NextConfig = {
-  turbopack: {
-    root: path.resolve(__dirname),
-    resolveAlias: {
-      tailwindcss: path.resolve(__dirname, "node_modules/tailwindcss"),
-    },
+  async rewrites() {
+    return [
+      {
+        source: "/api/:path*",
+        destination: `${process.env.BACKEND_URL}/api/:path*`,
+      },
+      {
+        source: "/ws/:path*",
+        destination: `${process.env.BACKEND_URL}/ws/:path*`,
+      },
+    ];
   },
 };
 
